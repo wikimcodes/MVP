@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Clinic {
+  id           String        @id @default(cuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  applications Application[]
+}
+
+model Patient {
+  id               String        @id @default(cuid())
+  emiratesId       String
+  name             String
+  phone            String
+  email            String
+  nationality      String
+  visaType         String
+  yearsInUAE       Int
+  employer         String
+  salaryMonthly    Float
+  mortgageMonthly  Float         @default(0)
+  carLoanMonthly   Float         @default(0)
+  otherDebtMonthly Float         @default(0)
+  createdAt        DateTime      @default(now())
+  applications     Application[]
+}
+
+model Lender {
+  id               String        @id @default(cuid())
+  name             String
+  minSalaryMonthly Float
+  maxDBR           Float
+  active           Boolean       @default(true)
+  applications     Application[]
+}
+
+model Application {
+  id             String     @id @default(cuid())
+  clinicId       String
+  patientId      String
+  treatmentType  String
+  treatmentCost  Float
+  status         String     @default("draft")
+  lenderId       String?
+  offerMonthly   Float?
+  offerTerm      Int?
+  approvalChance Float?
+  createdAt      DateTime   @default(now())
+  clinic         Clinic     @relation(fields: [clinicId], references: [id])
+  patient        Patient    @relation(fields: [patientId], references: [id])
+  lender         Lender?    @relation(fields: [lenderId], references: [id])
+  events         EventLog[]
+}
+
+model EventLog {
+  id            String      @id @default(cuid())
+  applicationId String
+  type          String
+  payloadJson   String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id])
+}
