@@ -9,7 +9,6 @@ interface Application {
   status: string;
   offerMonthly: number | null;
   offerTerm: number | null;
-  approvalChance: number | null;
   createdAt: string;
   patient: { name: string; phone: string; email: string };
   lender: { name: string } | null;

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { evaluate } from "@/modules/eligibility/engine";
-import { selectBestLender } from "@/modules/lenders/router";
+import { selectTopMatch } from "@/modules/lenders/router";
 import { logEvent } from "@/modules/events/logger";
 
 export interface ApplicationInput {
@@ -60,7 +60,7 @@ export async function submitApplication(input: ApplicationInput) {
   await logEvent(application.id, "eligibility.evaluated", {
     eligible: result.eligible,
     newDBR: result.newDBR,
-    offersCount: result.offers.length,
+    matchCount: result.matches.length,
   });
 
   if (!result.eligible) {
@@ -72,35 +72,36 @@ export async function submitApplication(input: ApplicationInput) {
     await logEvent(application.id, "application.rejected", {
       reason: "no_eligible_lenders",
     });
-    return { application: updated, offer: null, result };
+    return { application: updated, matches: [], result };
   }
 
-  const bestOffer = selectBestLender(result.offers);
+  const topMatch = selectTopMatch(result.matches);
 
   const updated = await prisma.application.update({
     where: { id: application.id },
     data: {
       status: "prequalified",
-      lenderId: bestOffer!.lenderId,
-      offerMonthly: bestOffer!.monthlyPayment,
-      offerTerm: bestOffer!.term,
-      approvalChance: bestOffer!.approvalChance,
+      lenderId: topMatch!.lenderId,
+      offerMonthly: topMatch!.monthlyPayment,
+      offerTerm: topMatch!.term,
+      approvalChance: topMatch!.matchScore,
     },
     include: { clinic: true, patient: true, lender: true },
   });
 
-  await logEvent(application.id, "lender.selected", {
-    lenderId: bestOffer!.lenderId,
-    lenderName: bestOffer!.lenderName,
-    approvalChance: bestOffer!.approvalChance,
+  await logEvent(application.id, "lender.matched", {
+    topLenderId: topMatch!.lenderId,
+    topLenderName: topMatch!.lenderName,
+    matchLabel: topMatch!.matchLabel,
+    totalMatches: result.matches.length,
   });
 
   await logEvent(application.id, "application.prequalified", {
-    offerMonthly: bestOffer!.monthlyPayment,
-    offerTerm: bestOffer!.term,
+    offerMonthly: topMatch!.monthlyPayment,
+    offerTerm: topMatch!.term,
   });
 
-  return { application: updated, offer: bestOffer, result };
+  return { application: updated, matches: result.matches, result };
 }
 
 export async function updateApplicationStatus(
